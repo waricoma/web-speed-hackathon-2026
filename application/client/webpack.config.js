@@ -63,9 +63,7 @@ const config = {
     clean: true,
   },
   plugins: [
-    new webpack.ProvidePlugin({
-      Buffer: ["buffer", "Buffer"],
-    }),
+    // Buffer polyfill removed - no longer needed after WASM removal
     new webpack.EnvironmentPlugin({
       BUILD_DATE: new Date().toISOString(),
       // Heroku では SOURCE_VERSION 環境変数から commit hash を参照できます
@@ -93,26 +91,6 @@ const config = {
     alias: {
       "bayesian-bm25$": path.resolve(__dirname, "node_modules", "bayesian-bm25/dist/index.js"),
       ["kuromoji$"]: path.resolve(__dirname, "node_modules", "kuromoji/build/kuromoji.js"),
-      "@ffmpeg/ffmpeg$": path.resolve(
-        __dirname,
-        "node_modules",
-        "@ffmpeg/ffmpeg/dist/esm/index.js",
-      ),
-      "@ffmpeg/core$": path.resolve(
-        __dirname,
-        "node_modules",
-        "@ffmpeg/core/dist/umd/ffmpeg-core.js",
-      ),
-      "@ffmpeg/core/wasm$": path.resolve(
-        __dirname,
-        "node_modules",
-        "@ffmpeg/core/dist/umd/ffmpeg-core.wasm",
-      ),
-      "@imagemagick/magick-wasm/magick.wasm$": path.resolve(
-        __dirname,
-        "node_modules",
-        "@imagemagick/magick-wasm/dist/magick.wasm",
-      ),
     },
     fallback: {
       fs: false,
@@ -126,16 +104,10 @@ const config = {
       chunks: "all",
       maxInitialRequests: 10,
       cacheGroups: {
-        wasm: {
-          test: /[\\/]node_modules[\\/](@ffmpeg|@imagemagick|magick-wasm)[\\/]/,
-          name: "wasm",
-          chunks: "initial",
-          priority: 20,
-        },
         nlp: {
           test: /[\\/]node_modules[\\/](kuromoji|bayesian-bm25|negaposi)[\\/]/,
           name: "nlp",
-          chunks: "initial",
+          chunks: "all",
           priority: 15,
         },
         vendor: {
@@ -151,12 +123,7 @@ const config = {
     providedExports: true,
     sideEffects: true,
   },
-  ignoreWarnings: [
-    {
-      module: /@ffmpeg/,
-      message: /Critical dependency: the request of a dependency is an expression/,
-    },
-  ],
+  ignoreWarnings: [],
 };
 
 module.exports = config;
