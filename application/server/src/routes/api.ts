@@ -15,6 +15,7 @@ import { sentimentRouter } from "@web-speed-hackathon-2026/server/src/routes/api
 import { tokenizeRouter } from "@web-speed-hackathon-2026/server/src/routes/api/tokenize";
 import { translateRouter } from "@web-speed-hackathon-2026/server/src/routes/api/translate";
 import { userRouter } from "@web-speed-hackathon-2026/server/src/routes/api/user";
+import { waveformRouter } from "@web-speed-hackathon-2026/server/src/routes/api/waveform";
 
 export const apiRouter = Router();
 
@@ -31,6 +32,7 @@ apiRouter.use(crokRouter);
 apiRouter.use(translateRouter);
 apiRouter.use(sentimentRouter);
 apiRouter.use(tokenizeRouter);
+apiRouter.use(waveformRouter);
 
 apiRouter.use(async (err: Error, _req: Request, _res: Response, _next: NextFunction) => {
   if (err instanceof ValidationError) {

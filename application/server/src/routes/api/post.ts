@@ -22,6 +22,7 @@ postRouter.get("/posts/:postId", async (req, res) => {
     throw new httpErrors.NotFound();
   }
 
+  res.set("Cache-Control", "public, max-age=10, stale-while-revalidate=60");
   return res.status(200).type("application/json").send(post);
 });
 
@@ -34,6 +35,7 @@ postRouter.get("/posts/:postId/comments", async (req, res) => {
     },
   });
 
+  res.set("Cache-Control", "public, max-age=10, stale-while-revalidate=60");
   return res.status(200).type("application/json").send(posts);
 });
 
