@@ -36,9 +36,9 @@ imageOptimizeRouter.get(/\/(images)\/.*\.(jpg|jpeg|png)$/i, async (req, res, nex
   const wParam = req.query["w"];
   const resizeWidth = wParam ? Math.min(Number(wParam), 1920) : undefined;
 
-  // Auto-resize profile images to 128px if no width specified
+  // Auto-resize: profile images to 128px, content images to 640px
   const isProfile = req.path.includes("/images/profiles/");
-  const width = resizeWidth || (isProfile ? 128 : undefined);
+  const width = resizeWidth || (isProfile ? 128 : 640);
 
   if (!supportsWebp && !supportsAvif && !width) {
     return next();
@@ -71,7 +71,7 @@ imageOptimizeRouter.get(/\/(images)\/.*\.(jpg|jpeg|png)$/i, async (req, res, nex
     }
 
     if (format === "avif") {
-      pipeline = pipeline.avif({ quality: 50 });
+      pipeline = pipeline.avif({ quality: 40, speed: 8 });
     } else if (format === "webp") {
       pipeline = pipeline.webp({ quality: 75 });
     } else {

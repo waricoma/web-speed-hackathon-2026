@@ -15,12 +15,18 @@
     </script>
   </head>
   <body class="bg-cax-canvas text-cax-text">
+    <style>
+      .bg-cax-canvas{background-color:#f5f5f4}
+      .text-cax-text{color:#042f2e}
+      .sk{animation:pulse 1.5s ease-in-out infinite}
+      @keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+    </style>
     <div id="app">
       <div style="max-width:640px;margin:0 auto;padding:1rem">
-        <div style="height:48px;background:#f5f5f4;border-radius:8px;margin-bottom:1rem"></div>
-        <div style="height:120px;background:#fff;border-radius:8px;margin-bottom:0.5rem;border:1px solid #e7e5e4"></div>
-        <div style="height:120px;background:#fff;border-radius:8px;margin-bottom:0.5rem;border:1px solid #e7e5e4"></div>
-        <div style="height:120px;background:#fff;border-radius:8px;margin-bottom:0.5rem;border:1px solid #e7e5e4"></div>
+        <div class="sk" style="height:48px;background:#e7e5e4;border-radius:8px;margin-bottom:1rem"></div>
+        <div class="sk" style="height:140px;background:#fff;border-radius:8px;margin-bottom:0.5rem;border:1px solid #e7e5e4"></div>
+        <div class="sk" style="height:140px;background:#fff;border-radius:8px;margin-bottom:0.5rem;border:1px solid #e7e5e4"></div>
+        <div class="sk" style="height:140px;background:#fff;border-radius:8px;margin-bottom:0.5rem;border:1px solid #e7e5e4"></div>
       </div>
     </div>
   </body>

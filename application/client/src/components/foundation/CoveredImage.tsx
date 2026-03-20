@@ -21,7 +21,7 @@ export const CoveredImage = ({ src, alt = "" }: Props) => {
         className="absolute left-1/2 top-1/2 h-full w-full max-w-none -translate-x-1/2 -translate-y-1/2 object-cover"
         decoding="async"
         loading="lazy"
-        src={src}
+        src={`${src}?w=640`}
       />
 
       <button
