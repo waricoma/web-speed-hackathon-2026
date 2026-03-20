@@ -11,6 +11,18 @@ import { UPLOAD_PATH } from "@web-speed-hackathon-2026/server/src/paths";
 // 変換した画像の拡張子
 const EXTENSION = "jpg";
 
+// Extract ImageDescription from TIFF tag 270 or EXIF
+function extractDescription(buf: Buffer): string {
+  const str = buf.toString("utf8");
+  // Search for TIFF ImageDescription tag content (Japanese text patterns)
+  // TIFF tag 270 stores description as UTF-8 string
+  const match = str.match(/[\u3000-\u9FFF\uF900-\uFAFF][\s\S]*?(?=\x00|\s{4,})/);
+  if (match) {
+    return match[0].trim();
+  }
+  return "";
+}
+
 export const imageRouter = Router();
 
 imageRouter.post("/images", async (req, res) => {
@@ -23,6 +35,9 @@ imageRouter.post("/images", async (req, res) => {
 
   const imageId = uuidv4();
 
+  // Extract description from image metadata before conversion
+  const alt = extractDescription(req.body);
+
   const outputBuffer = await sharp(req.body)
     .keepMetadata()
     .jpeg({ quality: 80 })
@@ -32,5 +47,5 @@ imageRouter.post("/images", async (req, res) => {
   await fs.mkdir(path.resolve(UPLOAD_PATH, "images"), { recursive: true });
   await fs.writeFile(filePath, outputBuffer);
 
-  return res.status(200).type("application/json").send({ id: imageId });
+  return res.status(200).type("application/json").send({ id: imageId, alt });
 });
