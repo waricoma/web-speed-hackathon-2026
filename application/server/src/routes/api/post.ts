@@ -11,6 +11,7 @@ postRouter.get("/posts", async (req, res) => {
     offset: req.query["offset"] != null ? Number(req.query["offset"]) : undefined,
   });
 
+  res.set("Cache-Control", "public, max-age=5, stale-while-revalidate=30");
   return res.status(200).type("application/json").send(posts);
 });
 

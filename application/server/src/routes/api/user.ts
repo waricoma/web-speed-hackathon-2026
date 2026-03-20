@@ -45,6 +45,7 @@ userRouter.get("/users/:username", async (req, res) => {
     throw new httpErrors.NotFound();
   }
 
+  res.set("Cache-Control", "public, max-age=60, stale-while-revalidate=120");
   return res.status(200).type("application/json").send(user);
 });
 
@@ -67,5 +68,6 @@ userRouter.get("/users/:username/posts", async (req, res) => {
     },
   });
 
+  res.set("Cache-Control", "public, max-age=10, stale-while-revalidate=60");
   return res.status(200).type("application/json").send(posts);
 });

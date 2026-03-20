@@ -124,11 +124,25 @@ const config = {
     minimize: true,
     splitChunks: {
       chunks: "all",
+      maxInitialRequests: 10,
       cacheGroups: {
+        wasm: {
+          test: /[\\/]node_modules[\\/](@ffmpeg|@imagemagick|magick-wasm)[\\/]/,
+          name: "wasm",
+          chunks: "initial",
+          priority: 20,
+        },
+        nlp: {
+          test: /[\\/]node_modules[\\/](kuromoji|bayesian-bm25|negaposi)[\\/]/,
+          name: "nlp",
+          chunks: "initial",
+          priority: 15,
+        },
         vendor: {
           test: /[\\/]node_modules[\\/]/,
           name: "vendor",
-          chunks: "all",
+          chunks: "initial",
+          priority: 10,
         },
       },
     },
