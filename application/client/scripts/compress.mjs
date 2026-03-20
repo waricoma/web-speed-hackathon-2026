@@ -1,9 +1,40 @@
 import { execSync } from "node:child_process";
-import { readdirSync, statSync } from "node:fs";
+import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, extname } from "node:path";
+import { brotliCompressSync, gzipSync, constants } from "node:zlib";
 
 const DIST = new URL("../../dist", import.meta.url).pathname;
 const EXTS = new Set([".js", ".css", ".html", ".svg", ".json"]);
+
+// Detect CLI availability
+let hasBrotliCLI = false;
+let hasGzipCLI = false;
+try { execSync("brotli --version", { stdio: "ignore" }); hasBrotliCLI = true; } catch {}
+try { execSync("gzip --version", { stdio: "ignore" }); hasGzipCLI = true; } catch {}
+
+function compressFile(filePath) {
+  // Brotli compression
+  if (hasBrotliCLI) {
+    try { execSync(`brotli -fk "${filePath}"`); } catch {}
+  } else {
+    const input = readFileSync(filePath);
+    const compressed = brotliCompressSync(input, {
+      params: {
+        [constants.BROTLI_PARAM_QUALITY]: constants.BROTLI_MAX_QUALITY,
+      },
+    });
+    writeFileSync(filePath + ".br", compressed);
+  }
+
+  // Gzip compression
+  if (hasGzipCLI) {
+    try { execSync(`gzip -fk "${filePath}"`); } catch {}
+  } else {
+    const input = readFileSync(filePath);
+    const compressed = gzipSync(input, { level: 9 });
+    writeFileSync(filePath + ".gz", compressed);
+  }
+}
 
 function walk(dir) {
   const entries = readdirSync(dir, { withFileTypes: true });
@@ -12,8 +43,7 @@ function walk(dir) {
     if (entry.isDirectory()) {
       walk(full);
     } else if (EXTS.has(extname(entry.name))) {
-      try { execSync(`brotli -fk "${full}"`); } catch {}
-      try { execSync(`gzip -fk "${full}"`); } catch {}
+      compressFile(full);
     }
   }
 }

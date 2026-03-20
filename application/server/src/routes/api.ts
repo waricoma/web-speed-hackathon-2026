@@ -12,6 +12,7 @@ import { postRouter } from "@web-speed-hackathon-2026/server/src/routes/api/post
 import { searchRouter } from "@web-speed-hackathon-2026/server/src/routes/api/search";
 import { soundRouter } from "@web-speed-hackathon-2026/server/src/routes/api/sound";
 import { sentimentRouter } from "@web-speed-hackathon-2026/server/src/routes/api/sentiment";
+import { tokenizeRouter } from "@web-speed-hackathon-2026/server/src/routes/api/tokenize";
 import { translateRouter } from "@web-speed-hackathon-2026/server/src/routes/api/translate";
 import { userRouter } from "@web-speed-hackathon-2026/server/src/routes/api/user";
 
@@ -29,6 +30,7 @@ apiRouter.use(authRouter);
 apiRouter.use(crokRouter);
 apiRouter.use(translateRouter);
 apiRouter.use(sentimentRouter);
+apiRouter.use(tokenizeRouter);
 
 apiRouter.use(async (err: Error, _req: Request, _res: Response, _next: NextFunction) => {
   if (err instanceof ValidationError) {
