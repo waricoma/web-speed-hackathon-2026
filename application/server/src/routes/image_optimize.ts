@@ -8,8 +8,8 @@ import { PUBLIC_PATH, UPLOAD_PATH } from "@web-speed-hackathon-2026/server/src/p
 
 export const imageOptimizeRouter = Router();
 
-// 画像配信モード: "jpeg" = JPEG リサイズ+再圧縮のみ, "avif" = AVIF/WebP優先
-const IMAGE_MODE: "jpeg" | "avif" = "jpeg";
+// 画像配信モード: "passthrough" = 元JPEG配信, "jpeg" = JPEGリサイズ+再圧縮, "avif" = AVIF/WebP優先
+const IMAGE_MODE: "passthrough" | "jpeg" | "avif" = "passthrough";
 
 const CACHE_DIR = path.resolve(PUBLIC_PATH, "../.image-cache");
 
@@ -31,6 +31,14 @@ async function findFile(relPath: string): Promise<string | null> {
 }
 
 imageOptimizeRouter.get(/\/(images)\/.*\.(jpg|jpeg|png)$/i, async (req, res, next) => {
+  // passthroughモード: 元画像をそのまま配信（VRT通過用）
+  if (IMAGE_MODE === "passthrough") {
+    const filePath = await findFile(req.path);
+    if (!filePath) return next();
+    res.set("Cache-Control", "public, max-age=31536000, immutable");
+    return res.sendFile(filePath);
+  }
+
   const accept = req.headers.accept || "";
   const supportsWebp = accept.includes("image/webp");
   const supportsAvif = accept.includes("image/avif");
