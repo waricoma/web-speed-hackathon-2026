@@ -46,6 +46,7 @@ ssrMiddleware.use(async (req, res, next) => {
   if (
     req.path.startsWith("/api") ||
     req.path.match(/\.\w+$/) ||
+    req.path.startsWith("/sounds") ||
     req.path.startsWith("/dm") ||
     req.path.startsWith("/crok") ||
     req.path.startsWith("/search")

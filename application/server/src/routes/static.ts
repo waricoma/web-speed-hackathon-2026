@@ -56,12 +56,14 @@ staticRouter.use((req, res, next) => {
 });
 
 // Resolve extensionless sound paths to .mp3 (existing) or .wav (new uploads)
+const SOUND_CONTENT_TYPES: Record<string, string> = { ".mp3": "audio/mpeg", ".wav": "audio/wav" };
 staticRouter.use("/sounds", (req, res, next) => {
   if (path.extname(req.path)) return next(); // already has extension
   for (const ext of [".mp3", ".wav"]) {
     for (const base of [UPLOAD_PATH, PUBLIC_PATH]) {
       const filePath = path.join(base, "sounds", req.path + ext);
       if (existsSync(filePath)) {
+        res.set("Content-Type", SOUND_CONTENT_TYPES[ext]!);
         res.set("Cache-Control", "public, max-age=86400");
         return res.sendFile(filePath);
       }
