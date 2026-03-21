@@ -8,6 +8,8 @@ import {
   DirectMessageConversation,
   User,
 } from "@web-speed-hackathon-2026/server/src/models";
+import { rawFindDMConversations, rawFindDMMessages } from "@web-speed-hackathon-2026/server/src/raw-queries";
+import { getSequelize } from "@web-speed-hackathon-2026/server/src/sequelize";
 
 export const directMessageRouter = Router();
 
@@ -16,22 +18,8 @@ directMessageRouter.get("/dm", async (req, res) => {
     throw new httpErrors.Unauthorized();
   }
 
-  const conversations = await DirectMessageConversation.findAll({
-    where: {
-      [Op.and]: [
-        { [Op.or]: [{ initiatorId: req.session.userId }, { memberId: req.session.userId }] },
-        where(col("messages.id"), { [Op.not]: null }),
-      ],
-    },
-    order: [[col("messages.createdAt"), "DESC"]],
-  });
-
-  const sorted = conversations.map((c) => ({
-    ...c.toJSON(),
-    messages: c.messages?.reverse(),
-  }));
-
-  return res.status(200).type("application/json").send(sorted);
+  const result = await rawFindDMConversations(req.session.userId);
+  return res.status(200).type("application/json").send(result);
 });
 
 directMessageRouter.post("/dm", async (req, res) => {
@@ -100,17 +88,47 @@ directMessageRouter.get("/dm/:conversationId", async (req, res) => {
     throw new httpErrors.Unauthorized();
   }
 
-  const conversation = await DirectMessageConversation.findOne({
-    where: {
-      id: req.params.conversationId,
-      [Op.or]: [{ initiatorId: req.session.userId }, { memberId: req.session.userId }],
-    },
-  });
-  if (conversation === null) {
+  const { QueryTypes } = await import("sequelize");
+  const sequelize = getSequelize();
+  const convRows = await sequelize.query<any>(
+    `SELECT c.id, c.initiatorId, c.memberId, c.createdAt, c.updatedAt,
+            i.id as i_id, i.description as i_desc, i.name as i_name, i.username as i_uname, i.createdAt as i_ca, i.updatedAt as i_ua,
+            ipi.id as ipi_id, ipi.alt as ipi_alt, ipi.createdAt as ipi_ca, ipi.updatedAt as ipi_ua,
+            m.id as m_id, m.description as m_desc, m.name as m_name, m.username as m_uname, m.createdAt as m_ca, m.updatedAt as m_ua,
+            mpi.id as mpi_id, mpi.alt as mpi_alt, mpi.createdAt as mpi_ca, mpi.updatedAt as mpi_ua
+     FROM DirectMessageConversations c
+     JOIN Users i ON c.initiatorId = i.id JOIN ProfileImages ipi ON i.profileImageId = ipi.id
+     JOIN Users m ON c.memberId = m.id JOIN ProfileImages mpi ON m.profileImageId = mpi.id
+     WHERE c.id = ? AND (c.initiatorId = ? OR c.memberId = ?)`,
+    { replacements: [req.params.conversationId, req.session.userId, req.session.userId], type: QueryTypes.SELECT },
+  );
+
+  if (convRows.length === 0) {
     throw new httpErrors.NotFound();
   }
 
-  return res.status(200).type("application/json").send(conversation);
+  const c = convRows[0];
+  const messages = await rawFindDMMessages(c.id);
+
+  const toISO = (d: string) => new Date(d).toISOString();
+  const result = {
+    id: c.id,
+    createdAt: toISO(c.createdAt),
+    updatedAt: toISO(c.updatedAt),
+    initiator: {
+      description: c.i_desc, id: c.i_id, name: c.i_name, username: c.i_uname,
+      createdAt: toISO(c.i_ca), updatedAt: toISO(c.i_ua),
+      profileImage: { alt: c.ipi_alt, id: c.ipi_id, createdAt: toISO(c.ipi_ca), updatedAt: toISO(c.ipi_ua) },
+    },
+    member: {
+      description: c.m_desc, id: c.m_id, name: c.m_name, username: c.m_uname,
+      createdAt: toISO(c.m_ca), updatedAt: toISO(c.m_ua),
+      profileImage: { alt: c.mpi_alt, id: c.mpi_id, createdAt: toISO(c.mpi_ca), updatedAt: toISO(c.mpi_ua) },
+    },
+    messages,
+  };
+
+  return res.status(200).type("application/json").send(result);
 });
 
 directMessageRouter.ws("/dm/:conversationId", async (req, _res) => {
@@ -204,7 +222,6 @@ directMessageRouter.post("/dm/:conversationId/read", async (req, res) => {
     { isRead: true },
     {
       where: { conversationId: conversation.id, senderId: peerId, isRead: false },
-      individualHooks: true,
     },
   );
 
