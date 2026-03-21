@@ -3,7 +3,9 @@ const path = require("path");
 
 const CopyWebpackPlugin = require("copy-webpack-plugin");
 const HtmlWebpackPlugin = require("html-webpack-plugin");
+const HTMLInlineCSSWebpackPlugin = require("html-inline-css-webpack-plugin").default;
 const MiniCssExtractPlugin = require("mini-css-extract-plugin");
+const TerserPlugin = require("terser-webpack-plugin");
 const webpack = require("webpack");
 
 const SRC_PATH = path.resolve(__dirname, "./src");
@@ -25,18 +27,15 @@ const config = {
     ],
     static: [PUBLIC_PATH, UPLOAD_PATH],
   },
-  devtool: "inline-source-map",
+  devtool: false,
   entry: {
     main: [
-      "core-js",
-      "regenerator-runtime/runtime",
-      "jquery-binarytransport",
       path.resolve(SRC_PATH, "./index.css"),
       path.resolve(SRC_PATH, "./buildinfo.ts"),
       path.resolve(SRC_PATH, "./index.tsx"),
     ],
   },
-  mode: "none",
+  mode: "production",
   module: {
     rules: [
       {
@@ -60,39 +59,38 @@ const config = {
   },
   output: {
     chunkFilename: "scripts/chunk-[contenthash].js",
-    chunkFormat: false,
-    filename: "scripts/[name].js",
+    filename: "scripts/[name]-[contenthash].js",
     path: DIST_PATH,
-    publicPath: "auto",
+    publicPath: "/",
     clean: true,
   },
   plugins: [
-    new webpack.ProvidePlugin({
-      $: "jquery",
-      AudioContext: ["standardized-audio-context", "AudioContext"],
-      Buffer: ["buffer", "Buffer"],
-      "window.jQuery": "jquery",
-    }),
+    // Buffer polyfill removed - no longer needed after WASM removal
     new webpack.EnvironmentPlugin({
       BUILD_DATE: new Date().toISOString(),
       // Heroku では SOURCE_VERSION 環境変数から commit hash を参照できます
       COMMIT_HASH: process.env.SOURCE_VERSION || "",
-      NODE_ENV: "development",
+      NODE_ENV: "production",
     }),
     new MiniCssExtractPlugin({
-      filename: "styles/[name].css",
+      filename: "styles/[name]-[contenthash].css",
     }),
     new CopyWebpackPlugin({
       patterns: [
         {
           from: path.resolve(__dirname, "node_modules/katex/dist/fonts"),
           to: path.resolve(DIST_PATH, "styles/fonts"),
+          globOptions: { ignore: ["**/*.ttf", "**/*.woff"] },
         },
       ],
     }),
     new HtmlWebpackPlugin({
-      inject: false,
+      inject: true,
+      scriptLoading: "defer",
       template: path.resolve(SRC_PATH, "./index.html"),
+    }),
+    new HTMLInlineCSSWebpackPlugin({
+      leaveCSSFile: true,
     }),
   ],
   resolve: {
@@ -100,26 +98,6 @@ const config = {
     alias: {
       "bayesian-bm25$": path.resolve(__dirname, "node_modules", "bayesian-bm25/dist/index.js"),
       ["kuromoji$"]: path.resolve(__dirname, "node_modules", "kuromoji/build/kuromoji.js"),
-      "@ffmpeg/ffmpeg$": path.resolve(
-        __dirname,
-        "node_modules",
-        "@ffmpeg/ffmpeg/dist/esm/index.js",
-      ),
-      "@ffmpeg/core$": path.resolve(
-        __dirname,
-        "node_modules",
-        "@ffmpeg/core/dist/umd/ffmpeg-core.js",
-      ),
-      "@ffmpeg/core/wasm$": path.resolve(
-        __dirname,
-        "node_modules",
-        "@ffmpeg/core/dist/umd/ffmpeg-core.wasm",
-      ),
-      "@imagemagick/magick-wasm/magick.wasm$": path.resolve(
-        __dirname,
-        "node_modules",
-        "@imagemagick/magick-wasm/dist/magick.wasm",
-      ),
     },
     fallback: {
       fs: false,
@@ -128,20 +106,54 @@ const config = {
     },
   },
   optimization: {
-    minimize: false,
-    splitChunks: false,
-    concatenateModules: false,
-    usedExports: false,
-    providedExports: false,
-    sideEffects: false,
-  },
-  cache: false,
-  ignoreWarnings: [
-    {
-      module: /@ffmpeg/,
-      message: /Critical dependency: the request of a dependency is an expression/,
+    minimize: true,
+    minimizer: [
+      new TerserPlugin({
+        terserOptions: {
+          ecma: 2020,
+          compress: {
+            passes: 2,
+            drop_console: true,
+          },
+        },
+      }),
+    ],
+    splitChunks: {
+      chunks: "all",
+      maxInitialRequests: 10,
+      cacheGroups: {
+        nlp: {
+          test: /[\\/]node_modules[\\/](kuromoji|bayesian-bm25|negaposi)[\\/]/,
+          name: "nlp",
+          chunks: "all",
+          priority: 20,
+        },
+        reactDom: {
+          test: /[\\/]node_modules[\\/](react-dom|scheduler)[\\/]/,
+          name: "react-dom",
+          chunks: "initial",
+          priority: 15,
+        },
+        router: {
+          test: /[\\/]node_modules[\\/]react-router[\\/]/,
+          name: "react-router",
+          chunks: "initial",
+          priority: 15,
+        },
+        vendor: {
+          test: /[\\/]node_modules[\\/]/,
+          name: "vendor",
+          chunks: "initial",
+          priority: 10,
+        },
+      },
     },
-  ],
+    concatenateModules: true,
+    usedExports: true,
+    providedExports: true,
+    sideEffects: true,
+  },
+  ignoreWarnings: [],
 };
 
 module.exports = config;
