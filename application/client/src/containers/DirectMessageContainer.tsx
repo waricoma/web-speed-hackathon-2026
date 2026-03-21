@@ -1,4 +1,4 @@
-import { startTransition, useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams } from "react-router";
 
 import { DirectMessageGate } from "@web-speed-hackathon-2026/client/src/components/direct_message/DirectMessageGate";
@@ -67,13 +67,11 @@ export const DirectMessageContainer = ({ activeUser, authModalId }: Props) => {
         const newMessage = await sendJSON<Models.DirectMessage>(`/api/v1/dm/${conversationId}/messages`, {
           body: params.body,
         });
-        // Optimistic update: add message to state (non-blocking via startTransition)
+        // Optimistic update: add message to state immediately
         if (conversation && newMessage) {
-          startTransition(() => {
-            setConversation({
-              ...conversation,
-              messages: [...conversation.messages, newMessage],
-            });
+          setConversation({
+            ...conversation,
+            messages: [...conversation.messages, newMessage],
           });
         }
       } finally {

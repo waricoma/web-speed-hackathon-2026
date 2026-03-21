@@ -55,8 +55,9 @@ const DMChatForm = memo(({ onSubmit, onTyping, isSubmitting, isPeerTyping, peerN
       event.preventDefault();
       const body = text.trim();
       if (!body) return;
-      setText(""); // Clear immediately for better INP (don't wait for server response)
-      void onSubmit({ body });
+      void onSubmit({ body }).then(() => {
+        setText("");
+      });
     },
     [onSubmit, text],
   );
