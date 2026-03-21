@@ -2,6 +2,7 @@ import classNames from "classnames";
 import { formatHHmm } from "@web-speed-hackathon-2026/client/src/utils/date_format";
 import {
   ChangeEvent,
+  memo,
   useCallback,
   useId,
   useRef,
@@ -14,6 +15,90 @@ import {
 import { FontAwesomeIcon } from "@web-speed-hackathon-2026/client/src/components/foundation/FontAwesomeIcon";
 import { DirectMessageFormData } from "@web-speed-hackathon-2026/client/src/direct_message/types";
 import { getProfileImagePath } from "@web-speed-hackathon-2026/client/src/utils/get_path";
+
+// Extracted form component: keystroke re-renders only affect this component, not the message list
+interface DMChatFormProps {
+  onSubmit: (params: DirectMessageFormData) => Promise<void>;
+  onTyping: () => void;
+  isSubmitting: boolean;
+  isPeerTyping: boolean;
+  peerName: string;
+}
+
+const DMChatForm = memo(({ onSubmit, onTyping, isSubmitting, isPeerTyping, peerName }: DMChatFormProps) => {
+  const formRef = useRef<HTMLFormElement>(null);
+  const textAreaId = useId();
+  const [text, setText] = useState("");
+  const textAreaRows = Math.min((text || "").split("\n").length, 5);
+  const isInvalid = text.trim().length === 0;
+
+  const handleChange = useCallback(
+    (event: ChangeEvent<HTMLTextAreaElement>) => {
+      setText(event.target.value);
+      onTyping();
+    },
+    [onTyping],
+  );
+
+  const handleKeyDown = useCallback(
+    (event: KeyboardEvent<HTMLTextAreaElement>) => {
+      if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
+        event.preventDefault();
+        formRef.current?.requestSubmit();
+      }
+    },
+    [],
+  );
+
+  const handleSubmit = useCallback(
+    (event: FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+      const body = text.trim();
+      if (!body) return;
+      setText(""); // Clear immediately for better INP (don't wait for server response)
+      void onSubmit({ body });
+    },
+    [onSubmit, text],
+  );
+
+  return (
+    <div className="sticky bottom-12 z-10 lg:bottom-0">
+      {isPeerTyping && (
+        <p className="bg-cax-surface-raised/75 text-cax-brand absolute inset-x-0 top-0 -translate-y-full px-4 py-1 text-xs">
+          <span className="font-bold">{peerName}</span>さんが入力中…
+        </p>
+      )}
+
+      <form
+        className="border-cax-border bg-cax-surface flex items-end gap-2 border-t p-4"
+        onSubmit={handleSubmit}
+        ref={formRef}
+      >
+        <div className="flex grow">
+          <label className="sr-only" htmlFor={textAreaId}>
+            内容
+          </label>
+          <textarea
+            id={textAreaId}
+            className="border-cax-border placeholder-cax-text-subtle focus:outline-cax-brand w-full resize-none rounded-xl border px-3 py-2 focus:outline-2 focus:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+            value={text}
+            onChange={handleChange}
+            onKeyDown={handleKeyDown}
+            rows={textAreaRows}
+            disabled={isSubmitting}
+          />
+        </div>
+        <button
+          className="bg-cax-brand text-cax-surface-raised hover:bg-cax-brand-strong rounded-full px-4 py-2 disabled:cursor-not-allowed disabled:opacity-50"
+          disabled={isInvalid || isSubmitting}
+          type="submit"
+        >
+          <FontAwesomeIcon iconType="arrow-right" styleType="solid" />
+        </button>
+      </form>
+    </div>
+  );
+});
 
 interface Props {
   conversationError: Error | null;
@@ -34,43 +119,8 @@ export const DirectMessagePage = ({
   onTyping,
   onSubmit,
 }: Props) => {
-  const formRef = useRef<HTMLFormElement>(null);
-  const textAreaId = useId();
-
   const peer =
     conversation.initiator.id !== activeUser.id ? conversation.initiator : conversation.member;
-
-  const [text, setText] = useState("");
-  const textAreaRows = Math.min((text || "").split("\n").length, 5);
-  const isInvalid = text.trim().length === 0;
-
-  const handleChange = useCallback(
-    (event: ChangeEvent<HTMLTextAreaElement>) => {
-      setText(event.target.value);
-      onTyping();
-    },
-    [onTyping],
-  );
-
-  const handleKeyDown = useCallback(
-    (event: KeyboardEvent<HTMLTextAreaElement>) => {
-      if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
-        event.preventDefault();
-        formRef.current?.requestSubmit();
-      }
-    },
-    [formRef],
-  );
-
-  const handleSubmit = useCallback(
-    (event: FormEvent<HTMLFormElement>) => {
-      event.preventDefault();
-      void onSubmit({ body: text.trim() }).then(() => {
-        setText("");
-      });
-    },
-    [onSubmit, text],
-  );
 
   // Scroll to bottom when messages change, using rAF to avoid blocking paint
   const messageCount = conversation.messages.length;
@@ -152,41 +202,13 @@ export const DirectMessagePage = ({
         </ul>
       </div>
 
-      <div className="sticky bottom-12 z-10 lg:bottom-0">
-        {isPeerTyping && (
-          <p className="bg-cax-surface-raised/75 text-cax-brand absolute inset-x-0 top-0 -translate-y-full px-4 py-1 text-xs">
-            <span className="font-bold">{peer.name}</span>さんが入力中…
-          </p>
-        )}
-
-        <form
-          className="border-cax-border bg-cax-surface flex items-end gap-2 border-t p-4"
-          onSubmit={handleSubmit}
-          ref={formRef}
-        >
-          <div className="flex grow">
-            <label className="sr-only" htmlFor={textAreaId}>
-              内容
-            </label>
-            <textarea
-              id={textAreaId}
-              className="border-cax-border placeholder-cax-text-subtle focus:outline-cax-brand w-full resize-none rounded-xl border px-3 py-2 focus:outline-2 focus:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-              value={text}
-              onChange={handleChange}
-              onKeyDown={handleKeyDown}
-              rows={textAreaRows}
-              disabled={isSubmitting}
-            />
-          </div>
-          <button
-            className="bg-cax-brand text-cax-surface-raised hover:bg-cax-brand-strong rounded-full px-4 py-2 disabled:cursor-not-allowed disabled:opacity-50"
-            disabled={isInvalid || isSubmitting}
-            type="submit"
-          >
-            <FontAwesomeIcon iconType="arrow-right" styleType="solid" />
-          </button>
-        </form>
-      </div>
+      <DMChatForm
+        onSubmit={onSubmit}
+        onTyping={onTyping}
+        isSubmitting={isSubmitting}
+        isPeerTyping={isPeerTyping}
+        peerName={peer.name}
+      />
     </section>
   );
 };
