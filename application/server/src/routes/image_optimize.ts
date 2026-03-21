@@ -94,7 +94,7 @@ imageOptimizeRouter.get(/\/(images)\/.*\.(jpg|jpeg|png)$/i, async (req, res, nex
     }
 
     if (format === "avif") {
-      pipeline = pipeline.avif({ quality: 40, speed: 8 });
+      pipeline = pipeline.avif({ quality: 55, speed: 6 });
     } else if (format === "webp") {
       pipeline = pipeline.webp({ quality: 75 });
     } else {

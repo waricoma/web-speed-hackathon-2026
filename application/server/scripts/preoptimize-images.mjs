@@ -35,7 +35,7 @@ async function processDir({ dir, width }) {
       try {
         await sharp(srcPath)
           .resize({ width, withoutEnlargement: true })
-          .avif({ quality: 40, speed: 4 })
+          .avif({ quality: 55, speed: 4 })
           .toFile(avifPath);
         count++;
       } catch (e) {
