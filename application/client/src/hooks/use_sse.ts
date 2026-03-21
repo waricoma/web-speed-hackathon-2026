@@ -19,12 +19,19 @@ export function useSSE<T>(options: SSEOptions<T>): ReturnValues {
   const [isStreaming, setIsStreaming] = useState(false);
   const eventSourceRef = useRef<EventSource | null>(null);
   const contentRef = useRef("");
+  const flushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const stop = useCallback(() => {
     if (eventSourceRef.current) {
       eventSourceRef.current.close();
       eventSourceRef.current = null;
     }
+    if (flushTimerRef.current !== null) {
+      clearTimeout(flushTimerRef.current);
+      flushTimerRef.current = null;
+    }
+    // Flush final content on stop
+    setContent(contentRef.current);
     setIsStreaming(false);
   }, []);
 
@@ -56,7 +63,14 @@ export function useSSE<T>(options: SSEOptions<T>): ReturnValues {
 
         const newContent = options.onMessage(data, contentRef.current);
         contentRef.current = newContent;
-        setContent(newContent);
+
+        // Throttle state updates to 200ms intervals to reduce re-renders during streaming
+        if (flushTimerRef.current === null) {
+          flushTimerRef.current = setTimeout(() => {
+            flushTimerRef.current = null;
+            setContent(contentRef.current);
+          }, 200);
+        }
       };
 
       eventSource.onerror = (error) => {
