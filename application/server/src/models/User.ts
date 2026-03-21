@@ -26,11 +26,12 @@ export class User extends Model<InferAttributes<User>, InferCreationAttributes<U
   declare posts?: NonAttribute<Post>[];
   declare profileImage?: NonAttribute<ProfileImage>;
 
-  generateHash(password: string): string {
-    return bcrypt.hashSync(password, bcrypt.genSaltSync(8));
+  async generateHash(password: string): Promise<string> {
+    const salt = await bcrypt.genSalt(8);
+    return bcrypt.hash(password, salt);
   }
-  validPassword(password: string): boolean {
-    return bcrypt.compareSync(password, this.getDataValue("password"));
+  async validPassword(password: string): Promise<boolean> {
+    return bcrypt.compare(password, this.getDataValue("password"));
   }
 }
 
@@ -57,9 +58,6 @@ export function initUser(sequelize: Sequelize) {
         get() {
           return undefined;
         },
-        set(value: string) {
-          this.setDataValue("password", this.generateHash(value));
-        },
         type: DataTypes.STRING,
       },
       username: {
@@ -80,6 +78,22 @@ export function initUser(sequelize: Sequelize) {
       defaultScope: {
         attributes: { exclude: ["profileImageId"] },
         include: { association: "profileImage" },
+      },
+      hooks: {
+        beforeCreate: async (user) => {
+          if (user.changed("password")) {
+            const raw = user.getDataValue("password");
+            const salt = await bcrypt.genSalt(8);
+            user.setDataValue("password", await bcrypt.hash(raw, salt));
+          }
+        },
+        beforeUpdate: async (user) => {
+          if (user.changed("password")) {
+            const raw = user.getDataValue("password");
+            const salt = await bcrypt.genSalt(8);
+            user.setDataValue("password", await bcrypt.hash(raw, salt));
+          }
+        },
       },
     },
   );
