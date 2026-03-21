@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import { Router } from "express";
 import httpErrors from "http-errors";
 
-import { QaSuggestion } from "@web-speed-hackathon-2026/server/src/models";
+import { rawFindQaSuggestions } from "@web-speed-hackathon-2026/server/src/raw-queries";
 
 export const crokRouter = Router();
 
@@ -13,8 +13,9 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const response = fs.readFileSync(path.join(__dirname, "crok-response.md"), "utf-8");
 
 crokRouter.get("/crok/suggestions", async (_req, res) => {
-  const suggestions = await QaSuggestion.findAll({ logging: false });
-  res.json({ suggestions: suggestions.map((s) => s.question) });
+  const suggestions = await rawFindQaSuggestions();
+  res.set("Cache-Control", "public, max-age=3600");
+  res.json({ suggestions });
 });
 
 function sleep(ms: number): Promise<void> {
@@ -33,16 +34,16 @@ crokRouter.get("/crok", async (req, res) => {
 
   let messageId = 0;
 
-  // TTFT (Time to First Token)
-  await sleep(3000);
-
-  for (const char of response) {
+  // Stream in large chunks with longer intervals to reduce client-side re-renders
+  const chunkSize = 140;
+  for (let i = 0; i < response.length; i += chunkSize) {
     if (res.closed) break;
 
-    const data = JSON.stringify({ text: char, done: false });
+    const chunk = response.slice(i, i + chunkSize);
+    const data = JSON.stringify({ text: chunk, done: false });
     res.write(`event: message\nid: ${messageId++}\ndata: ${data}\n\n`);
 
-    await sleep(10);
+    await sleep(30);
   }
 
   if (!res.closed) {
