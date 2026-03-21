@@ -3,15 +3,16 @@ import { getMoviePath, getMoviePosterPath } from "@web-speed-hackathon-2026/clie
 
 interface Props {
   movie: Models.Movie;
+  eager?: boolean;
 }
 
-export const MovieArea = ({ movie }: Props) => {
+export const MovieArea = ({ movie, eager = false }: Props) => {
   return (
     <div
       className="border-cax-border bg-cax-surface-subtle relative h-full w-full overflow-hidden rounded-lg border"
       data-movie-area
     >
-      <PausableMovie src={getMoviePath(movie.id)} posterSrc={getMoviePosterPath(movie.id)} />
+      <PausableMovie src={getMoviePath(movie.id)} posterSrc={getMoviePosterPath(movie.id)} eager={eager} />
     </div>
   );
 };

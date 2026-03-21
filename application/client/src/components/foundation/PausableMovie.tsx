@@ -9,16 +9,20 @@ const reducedMotion = typeof window !== "undefined" ? window.matchMedia("(prefer
 interface Props {
   src: string;
   posterSrc?: string;
+  eager?: boolean;
 }
 
-export const PausableMovie = ({ src, posterSrc }: Props) => {
+export const PausableMovie = ({ src, posterSrc, eager = false }: Props) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const rafRef = useRef<number>(0);
   const [isPlaying, setIsPlaying] = useState(!reducedMotion);
-  // Start with poster image, defer video element mount until visible
-  const [showVideo, setShowVideo] = useState(false);
+  // eager=true skips IntersectionObserver and shows video immediately
+  const [showVideo, setShowVideo] = useState(eager);
 
   useEffect(() => {
+    if (eager || showVideo) return;
     const el = containerRef.current;
     if (!el) return;
     const observer = new IntersectionObserver(
@@ -32,7 +36,49 @@ export const PausableMovie = ({ src, posterSrc }: Props) => {
     );
     observer.observe(el);
     return () => observer.disconnect();
-  }, []);
+  }, [eager, showVideo]);
+
+  // Draw video frames to canvas (matches upstream's gifler canvas rendering approach)
+  useEffect(() => {
+    if (!showVideo) return;
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    if (!video || !canvas) return;
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const drawFrame = () => {
+      if (video.readyState >= 2) {
+        if (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight) {
+          canvas.width = video.videoWidth || 320;
+          canvas.height = video.videoHeight || 320;
+        }
+        ctx.drawImage(video, 0, 0);
+      }
+      rafRef.current = requestAnimationFrame(drawFrame);
+    };
+
+    const onPlay = () => { rafRef.current = requestAnimationFrame(drawFrame); };
+    const onLoaded = () => {
+      canvas.width = video.videoWidth || 320;
+      canvas.height = video.videoHeight || 320;
+      ctx.drawImage(video, 0, 0);
+    };
+
+    video.addEventListener("play", onPlay);
+    video.addEventListener("loadeddata", onLoaded);
+
+    if (!video.paused) {
+      rafRef.current = requestAnimationFrame(drawFrame);
+    }
+
+    return () => {
+      cancelAnimationFrame(rafRef.current);
+      video.removeEventListener("play", onPlay);
+      video.removeEventListener("loadeddata", onLoaded);
+    };
+  }, [showVideo]);
 
   const handleClick = useCallback(() => {
     if (!showVideo) {
@@ -42,6 +88,7 @@ export const PausableMovie = ({ src, posterSrc }: Props) => {
     setIsPlaying((prev) => {
       if (prev) {
         videoRef.current?.pause();
+        cancelAnimationFrame(rafRef.current);
       } else {
         videoRef.current?.play();
       }
@@ -59,24 +106,27 @@ export const PausableMovie = ({ src, posterSrc }: Props) => {
           type="button"
         >
           {showVideo ? (
-            <video
-              ref={videoRef}
-              autoPlay={!reducedMotion}
-              className="h-full w-full object-cover"
-              loop
-              muted
-              playsInline
-              preload="metadata"
-              src={src}
-              onError={(e) => {
-                const video = e.currentTarget;
-                const retry = parseInt(video.dataset.retry || "0", 10);
-                if (retry >= 10) return;
-                video.dataset.retry = String(retry + 1);
-                const delay = retry < 2 ? 500 : retry < 5 ? 1000 : 2000;
-                setTimeout(() => { video.src = `${src}${src.includes("?") ? "&" : "?"}_r=${Date.now()}`; }, delay);
-              }}
-            />
+            <>
+              <video
+                ref={videoRef}
+                autoPlay={!reducedMotion}
+                className="hidden"
+                loop
+                muted
+                playsInline
+                preload="metadata"
+                src={src}
+                onError={(e) => {
+                  const video = e.currentTarget;
+                  const retry = parseInt(video.dataset.retry || "0", 10);
+                  if (retry >= 10) return;
+                  video.dataset.retry = String(retry + 1);
+                  const delay = retry < 2 ? 500 : retry < 5 ? 1000 : 2000;
+                  setTimeout(() => { video.src = `${src}${src.includes("?") ? "&" : "?"}_r=${Date.now()}`; }, delay);
+                }}
+              />
+              <canvas ref={canvasRef} className="h-full w-full object-cover" />
+            </>
           ) : posterSrc ? (
             <img className="h-full w-full object-cover" src={posterSrc} alt="" decoding="async" loading="lazy" />
           ) : (

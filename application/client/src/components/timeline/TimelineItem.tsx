@@ -98,7 +98,7 @@ export const TimelineItem = memo(({ post, index = 99 }: Props) => {
           ) : null}
           {post.movie ? (
             <div className="relative mt-2 w-full">
-              <MovieArea movie={post.movie} />
+              <MovieArea movie={post.movie} eager={isAboveFold} />
             </div>
           ) : null}
           {post.sound ? (

@@ -64,7 +64,7 @@ export const PostItem = memo(({ post }: Props) => {
           ) : null}
           {post.movie ? (
             <div className="relative mt-2 w-full">
-              <MovieArea movie={post.movie} />
+              <MovieArea movie={post.movie} eager={true} />
             </div>
           ) : null}
           {post.sound ? (
