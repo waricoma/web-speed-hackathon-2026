@@ -124,7 +124,7 @@ ssrMiddleware.use(async (req, res, next) => {
 
     // Remove prefetch script when SSR provides post data OR when page doesn't need posts (e.g. /terms)
     const isDatalessPage = ["/terms"].includes(req.path);
-    if (ssrData["/api/v1/posts?offset=0&limit=5"] || isDatalessPage) {
+    if (ssrData["/api/v1/posts?offset=0&limit=15"] || isDatalessPage) {
       finalHtml = finalHtml.replace(
         /<script>\s*window\.__PREFETCH__[\s\S]*?<\/script>/,
         "",

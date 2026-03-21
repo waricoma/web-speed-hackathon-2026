@@ -8,8 +8,8 @@ export async function fetchSSRData(url: string): Promise<Record<string, unknown>
 
   // Timeline: /
   if (url === "/") {
-    const posts = await rawFindPosts({ limit: 5, offset: 0 });
-    data["/api/v1/posts?offset=0&limit=5"] = posts;
+    const posts = await rawFindPosts({ limit: 15, offset: 0 });
+    data["/api/v1/posts?offset=0&limit=15"] = posts;
   }
 
   // Post detail: /posts/:postId
@@ -53,8 +53,8 @@ export async function fetchSSRData(url: string): Promise<Record<string, unknown>
           updatedAt: new Date(u.pi_updatedAt).toISOString(),
         },
       };
-      const posts = await rawFindPosts({ where: { userId: u.id }, limit: 5, offset: 0 });
-      data[`/api/v1/users/${username}/posts?offset=0&limit=5`] = posts;
+      const posts = await rawFindPosts({ where: { userId: u.id }, limit: 15, offset: 0 });
+      data[`/api/v1/users/${username}/posts?offset=0&limit=15`] = posts;
     }
   }
 
