@@ -1,4 +1,4 @@
-import { lazy, memo, Suspense, useEffect, useMemo, useState } from "react";
+import { createElement, lazy, memo, Suspense, useEffect, useMemo, useState } from "react";
 
 import { TypingIndicator } from "@web-speed-hackathon-2026/client/src/components/crok/TypingIndicator";
 import { CrokLogo } from "@web-speed-hackathon-2026/client/src/components/foundation/CrokLogo";
@@ -26,11 +26,34 @@ const UserMessage = ({ content }: { content: string }) => {
   );
 };
 
-// Lightweight markdown: just render as paragraphs with basic line breaks
+// Lightweight markdown: render headings as proper elements (for a11y/test selectors), rest as plain text
+const HEADING_RE = /^(#{1,6})\s+(.+)$/gm;
+
 const LightMarkdown = ({ content }: { content: string }) => {
-  return (
-    <div className="whitespace-pre-wrap">{content}</div>
-  );
+  // Fast path: no headings
+  if (!content.includes("#")) {
+    return <div className="whitespace-pre-wrap">{content}</div>;
+  }
+
+  const result: React.ReactNode[] = [];
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+  HEADING_RE.lastIndex = 0;
+
+  while ((match = HEADING_RE.exec(content)) !== null) {
+    if (match.index > lastIndex) {
+      result.push(<span key={`t${lastIndex}`}>{content.slice(lastIndex, match.index)}</span>);
+    }
+    const level = match[1]!.length;
+    result.push(createElement(`h${level}`, { key: `h${match.index}` }, match[2]));
+    lastIndex = match.index + match[0].length;
+  }
+
+  if (lastIndex < content.length) {
+    result.push(<span key={`t${lastIndex}`}>{content.slice(lastIndex)}</span>);
+  }
+
+  return <div className="whitespace-pre-wrap">{result}</div>;
 };
 
 // Memoized stable block that won't re-render once content is set

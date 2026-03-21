@@ -35,7 +35,6 @@ export const DirectMessagePage = ({
   onSubmit,
 }: Props) => {
   const formRef = useRef<HTMLFormElement>(null);
-  const messageListRef = useRef<HTMLUListElement>(null);
   const textAreaId = useId();
 
   const peer =
@@ -44,7 +43,6 @@ export const DirectMessagePage = ({
   const [text, setText] = useState("");
   const textAreaRows = Math.min((text || "").split("\n").length, 5);
   const isInvalid = text.trim().length === 0;
-  const scrollHeightRef = useRef(0);
 
   const handleChange = useCallback(
     (event: ChangeEvent<HTMLTextAreaElement>) => {
@@ -74,21 +72,13 @@ export const DirectMessagePage = ({
     [onSubmit, text],
   );
 
+  // Scroll to bottom when messages change, using rAF to avoid blocking paint
+  const messageCount = conversation.messages.length;
   useEffect(() => {
-    const el = messageListRef.current;
-    if (el == null) return;
-    const observer = new MutationObserver(() => {
-      const height = document.body.scrollHeight;
-      if (height !== scrollHeightRef.current) {
-        scrollHeightRef.current = height;
-        window.scrollTo(0, height);
-      }
+    requestAnimationFrame(() => {
+      window.scrollTo(0, document.body.scrollHeight);
     });
-    observer.observe(el, { childList: true });
-    // scroll to bottom on mount
-    window.scrollTo(0, document.body.scrollHeight);
-    return () => observer.disconnect();
-  }, []);
+  }, [messageCount]);
 
   if (conversationError != null) {
     return (
@@ -125,7 +115,7 @@ export const DirectMessagePage = ({
           </p>
         )}
 
-        <ul ref={messageListRef} className="grid gap-3" data-testid="dm-message-list">
+        <ul className="grid gap-3" data-testid="dm-message-list">
           {conversation.messages.map((message) => {
             const isActiveUserSend = message.sender.id === activeUser.id;
 

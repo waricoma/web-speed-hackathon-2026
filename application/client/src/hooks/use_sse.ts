@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { startTransition, useCallback, useRef, useState } from "react";
 
 interface SSEOptions<T> {
   onMessage: (data: T, prevContent: string) => string;
@@ -64,12 +64,16 @@ export function useSSE<T>(options: SSEOptions<T>): ReturnValues {
         const newContent = options.onMessage(data, contentRef.current);
         contentRef.current = newContent;
 
-        // Throttle state updates to 200ms intervals to reduce re-renders during streaming
+        // Throttle state updates to 500ms intervals, use rAF + startTransition to avoid blocking input events
         if (flushTimerRef.current === null) {
           flushTimerRef.current = setTimeout(() => {
             flushTimerRef.current = null;
-            setContent(contentRef.current);
-          }, 200);
+            requestAnimationFrame(() => {
+              startTransition(() => {
+                setContent(contentRef.current);
+              });
+            });
+          }, 500);
         }
       };
 

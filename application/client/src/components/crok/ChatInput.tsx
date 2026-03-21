@@ -90,7 +90,8 @@ export const ChatInput = ({ isStreaming, onSendMessage }: Props) => {
   useEffect(() => {
     let cancelled = false;
 
-    if (!deferredInputValue.trim()) {
+    // Skip suggestions during streaming to reduce TBT
+    if (isStreaming || !deferredInputValue.trim()) {
       setSuggestions([]);
       setQueryTokens([]);
       setShowSuggestions(false);
@@ -128,7 +129,7 @@ export const ChatInput = ({ isStreaming, onSendMessage }: Props) => {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [deferredInputValue]);
+  }, [deferredInputValue, isStreaming]);
 
   const adjustTextareaHeight = () => {
     const textarea = textareaRef.current;
