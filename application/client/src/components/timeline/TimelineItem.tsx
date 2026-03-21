@@ -1,5 +1,5 @@
-import moment from "moment";
-import { MouseEventHandler, useCallback } from "react";
+import { formatLL } from "@web-speed-hackathon-2026/client/src/utils/date_format";
+import { memo, MouseEventHandler, useCallback } from "react";
 import { Link, useNavigate } from "react-router";
 
 import { ImageArea } from "@web-speed-hackathon-2026/client/src/components/post/ImageArea";
@@ -28,9 +28,11 @@ const isClickedAnchorOrButton = (target: EventTarget | null, currentTarget: Elem
  */
 interface Props {
   post: Models.Post;
+  index?: number;
 }
 
-export const TimelineItem = ({ post }: Props) => {
+export const TimelineItem = memo(({ post, index = 99 }: Props) => {
+  const isAboveFold = index < 3;
   const navigate = useNavigate();
 
   /**
@@ -47,7 +49,7 @@ export const TimelineItem = ({ post }: Props) => {
   );
 
   return (
-    <article className="hover:bg-cax-surface-subtle px-1 sm:px-4" onClick={handleClick}>
+    <article className="hover:bg-cax-surface-subtle px-1 sm:px-4" style={{ contentVisibility: "auto", containIntrinsicSize: "auto 200px" }} onClick={handleClick}>
       <div className="border-cax-border flex border-b px-2 pt-2 pb-4 sm:px-4">
         <div className="shrink-0 grow-0 pr-2 sm:pr-4">
           <Link
@@ -56,7 +58,12 @@ export const TimelineItem = ({ post }: Props) => {
           >
             <img
               alt={post.user.profileImage.alt}
+              decoding={isAboveFold ? "sync" : "async"}
+              fetchPriority={isAboveFold ? "high" : "low"}
+              loading={isAboveFold ? "eager" : "lazy"}
               src={getProfileImagePath(post.user.profileImage.id)}
+              width={64}
+              height={64}
             />
           </Link>
         </div>
@@ -76,8 +83,8 @@ export const TimelineItem = ({ post }: Props) => {
             </Link>
             <span className="text-cax-text-muted pr-1">-</span>
             <Link className="text-cax-text-muted pr-1 hover:underline" to={`/posts/${post.id}`}>
-              <time dateTime={moment(post.createdAt).toISOString()}>
-                {moment(post.createdAt).locale("ja").format("LL")}
+              <time dateTime={new Date(post.createdAt).toISOString()}>
+                {formatLL(post.createdAt)}
               </time>
             </Link>
           </p>
@@ -86,7 +93,7 @@ export const TimelineItem = ({ post }: Props) => {
           </div>
           {post.images?.length > 0 ? (
             <div className="relative mt-2 w-full">
-              <ImageArea images={post.images} />
+              <ImageArea images={post.images} priority={isAboveFold} />
             </div>
           ) : null}
           {post.movie ? (
@@ -103,4 +110,4 @@ export const TimelineItem = ({ post }: Props) => {
       </div>
     </article>
   );
-};
+});
