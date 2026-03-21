@@ -28,8 +28,8 @@ export const Button = ({
         },
         className,
       )}
-      type="button"
       {...props}
+      type={props.type || "button"}
     >
       {leftItem}
       <span>{children}</span>
