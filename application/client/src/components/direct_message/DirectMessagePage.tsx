@@ -1,5 +1,5 @@
 import classNames from "classnames";
-import moment from "moment";
+import { formatHHmm } from "@web-speed-hackathon-2026/client/src/utils/date_format";
 import {
   ChangeEvent,
   useCallback,
@@ -35,6 +35,7 @@ export const DirectMessagePage = ({
   onSubmit,
 }: Props) => {
   const formRef = useRef<HTMLFormElement>(null);
+  const messageListRef = useRef<HTMLUListElement>(null);
   const textAreaId = useId();
 
   const peer =
@@ -74,15 +75,19 @@ export const DirectMessagePage = ({
   );
 
   useEffect(() => {
-    const id = setInterval(() => {
-      const height = Number(window.getComputedStyle(document.body).height.replace("px", ""));
+    const el = messageListRef.current;
+    if (el == null) return;
+    const observer = new MutationObserver(() => {
+      const height = document.body.scrollHeight;
       if (height !== scrollHeightRef.current) {
         scrollHeightRef.current = height;
         window.scrollTo(0, height);
       }
-    }, 1);
-
-    return () => clearInterval(id);
+    });
+    observer.observe(el, { childList: true });
+    // scroll to bottom on mount
+    window.scrollTo(0, document.body.scrollHeight);
+    return () => observer.disconnect();
   }, []);
 
   if (conversationError != null) {
@@ -99,6 +104,8 @@ export const DirectMessagePage = ({
         <img
           alt={peer.profileImage.alt}
           className="h-12 w-12 rounded-full object-cover"
+          decoding="async"
+          loading="lazy"
           src={getProfileImagePath(peer.profileImage.id)}
         />
         <div className="min-w-0">
@@ -118,16 +125,18 @@ export const DirectMessagePage = ({
           </p>
         )}
 
-        <ul className="grid gap-3" data-testid="dm-message-list">
+        <ul ref={messageListRef} className="grid gap-3" data-testid="dm-message-list">
           {conversation.messages.map((message) => {
             const isActiveUserSend = message.sender.id === activeUser.id;
 
             return (
               <li
+                key={message.id}
                 className={classNames(
                   "flex flex-col w-full",
                   isActiveUserSend ? "items-end" : "items-start",
                 )}
+                style={{ contentVisibility: "auto", containIntrinsicSize: "auto 60px" }}
               >
                 <p
                   className={classNames(
@@ -141,7 +150,7 @@ export const DirectMessagePage = ({
                 </p>
                 <div className="flex gap-1 text-xs">
                   <time dateTime={message.createdAt}>
-                    {moment(message.createdAt).locale("ja").format("HH:mm")}
+                    {formatHHmm(message.createdAt)}
                   </time>
                   {isActiveUserSend && message.isRead && (
                     <span className="text-cax-text-muted">既読</span>
