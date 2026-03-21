@@ -115,7 +115,11 @@ export const PausableMovie = ({ src, posterSrc }: Props) => {
                 src={src}
                 onError={(e) => {
                   const video = e.currentTarget;
-                  setTimeout(() => { video.src = src; }, 2000);
+                  const retry = parseInt(video.dataset.retry || "0", 10);
+                  if (retry >= 10) return;
+                  video.dataset.retry = String(retry + 1);
+                  const delay = retry < 2 ? 500 : retry < 5 ? 1000 : 2000;
+                  setTimeout(() => { video.src = `${src}${src.includes("?") ? "&" : "?"}_r=${Date.now()}`; }, delay);
                 }}
               />
               <canvas ref={canvasRef} className="h-full w-full object-cover" />

@@ -34,7 +34,14 @@ export const SoundPlayer = ({ sound }: Props) => {
   return (
     <div className="bg-cax-surface-subtle flex h-full w-full items-center justify-center">
       <audio ref={audioRef} loop={true} onTimeUpdate={handleTimeUpdate} preload="none" src={soundUrl}
-        onError={(e) => { const el = e.currentTarget; setTimeout(() => { el.src = soundUrl; }, 2000); }}
+        onError={(e) => {
+          const el = e.currentTarget;
+          const retry = parseInt(el.dataset.retry || "0", 10);
+          if (retry >= 10) return;
+          el.dataset.retry = String(retry + 1);
+          const delay = retry < 2 ? 500 : retry < 5 ? 1000 : 2000;
+          setTimeout(() => { el.src = `${soundUrl}${soundUrl.includes("?") ? "&" : "?"}_r=${Date.now()}`; }, delay);
+        }}
       />
       <div className="p-2">
         <button
