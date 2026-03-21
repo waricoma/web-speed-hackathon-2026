@@ -13,6 +13,7 @@ function needsRichRendering(content: string): boolean {
 
 interface Props {
   message: Models.ChatMessage;
+  isStreaming?: boolean;
 }
 
 const UserMessage = ({ content }: { content: string }) => {
@@ -53,17 +54,21 @@ function splitStableAndTail(content: string): { stableBlocks: string[]; tail: st
   };
 }
 
-const AssistantMessage = ({ content }: { content: string }) => {
+const AssistantMessage = ({ content, isLastMessage, isStreaming }: { content: string; isLastMessage: boolean; isStreaming: boolean }) => {
+  // Only enable RichMarkdown AFTER streaming is complete (avoid re-parsing 13KB markdown 15x during stream)
+  const isStreamingThis = isLastMessage && isStreaming;
   const [useRich, setUseRich] = useState(false);
 
   useEffect(() => {
-    if (!content) return;
+    if (!content || isStreamingThis) {
+      setUseRich(false);
+      return;
+    }
     if (needsRichRendering(content)) {
-      // Defer heavy markdown loading
       const timer = setTimeout(() => setUseRich(true), 100);
       return () => clearTimeout(timer);
     }
-  }, [content]);
+  }, [content, isStreamingThis]);
 
   // Split into stable (memo'd) and tail (re-rendered) blocks during streaming
   const { stableBlocks, tail } = useMemo(() => splitStableAndTail(content), [content]);
@@ -77,7 +82,7 @@ const AssistantMessage = ({ content }: { content: string }) => {
         <div className="text-cax-text mb-1 text-sm font-medium">Crok</div>
         <div className="markdown text-cax-text max-w-none">
           {content ? (
-            useRich ? (
+            useRich && !isStreamingThis ? (
               <Suspense fallback={<LightMarkdown content={content} />}>
                 <RichMarkdown content={content} />
               </Suspense>
@@ -98,9 +103,9 @@ const AssistantMessage = ({ content }: { content: string }) => {
   );
 };
 
-export const ChatMessage = memo(({ message }: Props) => {
+export const ChatMessage = memo(({ message, isStreaming = false }: Props) => {
   if (message.role === "user") {
     return <UserMessage content={message.content} />;
   }
-  return <AssistantMessage content={message.content} />;
+  return <AssistantMessage content={message.content} isLastMessage={true} isStreaming={isStreaming} />;
 });
