@@ -1,7 +1,8 @@
 import { Router } from "express";
 import httpErrors from "http-errors";
 
-import { Post, User } from "@web-speed-hackathon-2026/server/src/models";
+import { User } from "@web-speed-hackathon-2026/server/src/models";
+import { rawFindPosts } from "@web-speed-hackathon-2026/server/src/raw-queries";
 
 export const userRouter = Router();
 
@@ -45,6 +46,7 @@ userRouter.get("/users/:username", async (req, res) => {
     throw new httpErrors.NotFound();
   }
 
+  res.set("Cache-Control", "public, max-age=60, stale-while-revalidate=120");
   return res.status(200).type("application/json").send(user);
 });
 
@@ -59,13 +61,12 @@ userRouter.get("/users/:username/posts", async (req, res) => {
     throw new httpErrors.NotFound();
   }
 
-  const posts = await Post.findAll({
+  const posts = await rawFindPosts({
     limit: req.query["limit"] != null ? Number(req.query["limit"]) : undefined,
     offset: req.query["offset"] != null ? Number(req.query["offset"]) : undefined,
-    where: {
-      userId: user.id,
-    },
+    where: { userId: user.id },
   });
 
+  res.set("Cache-Control", "public, max-age=10, stale-while-revalidate=60");
   return res.status(200).type("application/json").send(posts);
 });
