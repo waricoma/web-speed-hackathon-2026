@@ -122,8 +122,9 @@ ssrMiddleware.use(async (req, res, next) => {
       finalHtml = finalHtml.replace("</head>", `${preloadLinks.join("\n")}\n</head>`);
     }
 
-    // If SSR provides post data, remove the prefetch script to avoid double-fetch
-    if (ssrData["/api/v1/posts?offset=0&limit=5"]) {
+    // Remove prefetch script when SSR provides post data OR when page doesn't need posts (e.g. /terms)
+    const isDatalessPage = ["/terms"].includes(req.path);
+    if (ssrData["/api/v1/posts?offset=0&limit=5"] || isDatalessPage) {
       finalHtml = finalHtml.replace(
         /<script>\s*window\.__PREFETCH__[\s\S]*?<\/script>/,
         "",
