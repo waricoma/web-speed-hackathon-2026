@@ -2,7 +2,6 @@ import { lazy, startTransition, Suspense, useCallback, useEffect, useState } fro
 import { Route, Routes, useLocation, useNavigate } from "react-router";
 
 import { AppPage } from "@web-speed-hackathon-2026/client/src/components/application/AppPage";
-import { TimelineContainer } from "@web-speed-hackathon-2026/client/src/containers/TimelineContainer";
 import { fetchJSON, sendJSON } from "@web-speed-hackathon-2026/client/src/utils/fetchers";
 
 const lazyNamed = <T extends Record<string, any>>(
@@ -10,6 +9,7 @@ const lazyNamed = <T extends Record<string, any>>(
   name: keyof T,
 ) => lazy(() => factory().then((m) => ({ default: m[name] })));
 
+const TimelineContainer = lazyNamed(() => import("@web-speed-hackathon-2026/client/src/containers/TimelineContainer"), "TimelineContainer");
 const CrokContainer = lazyNamed(() => import("@web-speed-hackathon-2026/client/src/containers/CrokContainer"), "CrokContainer");
 const DirectMessageContainer = lazyNamed(() => import("@web-speed-hackathon-2026/client/src/containers/DirectMessageContainer"), "DirectMessageContainer");
 const DirectMessageListContainer = lazyNamed(() => import("@web-speed-hackathon-2026/client/src/containers/DirectMessageListContainer"), "DirectMessageListContainer");
@@ -88,7 +88,7 @@ export const AppContainer = () => {
         onLogout={handleLogout}
       >
         <Routes>
-          <Route element={<TimelineContainer />} path="/" />
+          <Route element={<Suspense fallback={<SuspenseFallback />}><TimelineContainer /></Suspense>} path="/" />
           <Route
             element={
               <Suspense fallback={<SuspenseFallback />}>
