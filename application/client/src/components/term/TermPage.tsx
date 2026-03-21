@@ -1,3 +1,5 @@
+import "./term-fonts.css";
+
 export const TermPage = () => {
   return (
     <article className="px-2 pb-16 leading-relaxed md:px-4 md:pt-2">
