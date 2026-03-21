@@ -1,65 +1,75 @@
-import _ from "lodash";
-import { useEffect, useRef, useState } from "react";
-
-interface ParsedData {
-  max: number;
-  peaks: number[];
-}
-
-async function calculate(data: ArrayBuffer): Promise<ParsedData> {
-  const audioCtx = new AudioContext();
-
-  // 音声をデコードする
-  const buffer = await audioCtx.decodeAudioData(data.slice(0));
-  // 左の音声データの絶対値を取る
-  const leftData = _.map(buffer.getChannelData(0), Math.abs);
-  // 右の音声データの絶対値を取る
-  const rightData = _.map(buffer.getChannelData(1), Math.abs);
-
-  // 左右の音声データの平均を取る
-  const normalized = _.map(_.zip(leftData, rightData), _.mean);
-  // 100 個の chunk に分ける
-  const chunks = _.chunk(normalized, Math.ceil(normalized.length / 100));
-  // chunk ごとに平均を取る
-  const peaks = _.map(chunks, _.mean);
-  // chunk の平均の中から最大値を取る
-  const max = _.max(peaks) ?? 0;
-
-  return { max, peaks };
-}
+import { useEffect, useMemo, useState } from "react";
 
 interface Props {
-  soundData: ArrayBuffer;
+  soundId: string;
 }
 
-export const SoundWaveSVG = ({ soundData }: Props) => {
-  const uniqueIdRef = useRef(Math.random().toString(16));
-  const [{ max, peaks }, setPeaks] = useState<ParsedData>({
-    max: 0,
-    peaks: [],
-  });
+// Fallback: generate peaks on main thread if Worker unavailable
+function generatePeaks(id: string, count: number): number[] {
+  let hash = 0;
+  for (let i = 0; i < id.length; i++) {
+    hash = ((hash << 5) - hash + id.charCodeAt(i)) | 0;
+  }
+  const peaks: number[] = [];
+  for (let i = 0; i < count; i++) {
+    peaks.push(0.3 + 0.4 * Math.abs(Math.sin(i * 0.3 + hash) * Math.sin(i * 0.07 + hash * 0.5)));
+  }
+  return peaks;
+}
+
+function generatePathD(id: string): string {
+  const peaks = generatePeaks(id, 100);
+  return peaks.map((ratio, i) => `M${i},${1 - ratio}v${ratio}`).join("");
+}
+
+// Shared worker instance (lazy initialized)
+let sharedWorker: Worker | null = null;
+let workerFailed = false;
+const pendingCallbacks = new Map<string, (pathD: string) => void>();
+
+function getWorker(): Worker | null {
+  if (workerFailed) return null;
+  if (sharedWorker) return sharedWorker;
+  try {
+    sharedWorker = new Worker(new URL("@web-speed-hackathon-2026/client/src/workers/waveform-worker.ts", import.meta.url));
+    sharedWorker.addEventListener("message", (e: MessageEvent<{ soundId: string; pathD: string }>) => {
+      const cb = pendingCallbacks.get(e.data.soundId);
+      if (cb) {
+        cb(e.data.pathD);
+        pendingCallbacks.delete(e.data.soundId);
+      }
+    });
+    return sharedWorker;
+  } catch {
+    workerFailed = true;
+    return null;
+  }
+}
+
+export const SoundWaveSVG = ({ soundId }: Props) => {
+  const [pathD, setPathD] = useState<string | null>(null);
+
+  // Fallback path for SSR or if worker fails
+  const fallbackPathD = useMemo(() => generatePathD(soundId), [soundId]);
 
   useEffect(() => {
-    calculate(soundData).then(({ max, peaks }) => {
-      setPeaks({ max, peaks });
-    });
-  }, [soundData]);
+    const worker = getWorker();
+    if (!worker) {
+      setPathD(fallbackPathD);
+      return;
+    }
+    pendingCallbacks.set(soundId, setPathD);
+    worker.postMessage({ soundId });
+    return () => {
+      pendingCallbacks.delete(soundId);
+    };
+  }, [soundId, fallbackPathD]);
+
+  const d = pathD ?? fallbackPathD;
 
   return (
     <svg className="h-full w-full" preserveAspectRatio="none" viewBox="0 0 100 1">
-      {peaks.map((peak, idx) => {
-        const ratio = peak / max;
-        return (
-          <rect
-            key={`${uniqueIdRef.current}#${idx}`}
-            fill="var(--color-cax-accent)"
-            height={ratio}
-            width="1"
-            x={idx}
-            y={1 - ratio}
-          />
-        );
-      })}
+      <path d={d} stroke="var(--color-cax-accent)" strokeWidth="1" fill="none" vectorEffect="non-scaling-stroke" />
     </svg>
   );
 };
