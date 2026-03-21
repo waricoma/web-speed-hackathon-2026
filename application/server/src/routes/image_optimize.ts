@@ -8,6 +8,9 @@ import { PUBLIC_PATH, UPLOAD_PATH } from "@web-speed-hackathon-2026/server/src/p
 
 export const imageOptimizeRouter = Router();
 
+// 画像配信モード: "jpeg" = JPEG リサイズ+再圧縮のみ, "avif" = AVIF/WebP優先
+const IMAGE_MODE: "jpeg" | "avif" = "jpeg";
+
 const CACHE_DIR = path.resolve(PUBLIC_PATH, "../.image-cache");
 
 async function ensureCacheDir() {
@@ -34,51 +37,52 @@ imageOptimizeRouter.get(/\/(images)\/.*\.(jpg|jpeg|png)$/i, async (req, res, nex
 
   const isProfile = req.path.includes("/images/profiles/");
 
-  // Try pre-built AVIF first (smallest, preferred)
-  if (supportsAvif) {
-    const avifRelPath = req.path.replace(/\.(jpg|jpeg|png)$/i, ".avif");
-    const avifFile = await findFile(avifRelPath);
-    if (avifFile) {
-      res.set("Content-Type", "image/avif");
-      res.set("Cache-Control", "public, max-age=31536000, immutable");
-      res.set("Vary", "Accept");
-      return res.sendFile(avifFile);
+  if (IMAGE_MODE === "avif") {
+    // AVIF/WebP優先モード: プリビルドファイルがあればそのまま返す
+    if (supportsAvif) {
+      const avifRelPath = req.path.replace(/\.(jpg|jpeg|png)$/i, ".avif");
+      const avifFile = await findFile(avifRelPath);
+      if (avifFile) {
+        res.set("Content-Type", "image/avif");
+        res.set("Cache-Control", "public, max-age=31536000, immutable");
+        res.set("Vary", "Accept");
+        return res.sendFile(avifFile);
+      }
+    }
+
+    if (supportsWebp) {
+      const webpRelPath = req.path.replace(/\.(jpg|jpeg|png)$/i, ".webp");
+      const webpFile = await findFile(webpRelPath);
+      if (webpFile) {
+        res.set("Content-Type", "image/webp");
+        res.set("Cache-Control", "public, max-age=31536000, immutable");
+        res.set("Vary", "Accept");
+        return res.sendFile(webpFile);
+      }
     }
   }
 
-  // Try pre-built WebP as fallback
-  if (supportsWebp) {
-    const webpRelPath = req.path.replace(/\.(jpg|jpeg|png)$/i, ".webp");
-    const webpFile = await findFile(webpRelPath);
-    if (webpFile) {
-      res.set("Content-Type", "image/webp");
-      res.set("Cache-Control", "public, max-age=31536000, immutable");
-      res.set("Vary", "Accept");
-      return res.sendFile(webpFile);
-    }
-  }
-
-  // Determine resize width
+  // リサイズ幅
   const wParam = req.query["w"];
   const resizeWidth = wParam ? Math.min(Number(wParam), 1920) : undefined;
   const width = resizeWidth || (isProfile ? 128 : 640);
 
-  if (!supportsWebp && !supportsAvif && !width) {
-    return next();
-  }
+  // 出力フォーマット
+  const format = IMAGE_MODE === "avif"
+    ? (supportsAvif ? "avif" : supportsWebp ? "webp" : "jpeg")
+    : "jpeg";
 
-  const format = supportsAvif ? "avif" : supportsWebp ? "webp" : "jpeg";
   const filePath = await findFile(req.path);
   if (!filePath) return next();
 
-  const cacheKey = `${req.path.replace(/\//g, "_")}_w${width || "orig"}.${format}`;
+  const cacheKey = `${req.path.replace(/\//g, "_")}_w${width}.${format}`;
   const cachePath = path.resolve(CACHE_DIR, cacheKey);
 
   try {
     const cached = await fs.readFile(cachePath);
     res.set("Content-Type", format === "jpeg" ? "image/jpeg" : `image/${format}`);
-    res.set("Cache-Control", "public, max-age=86400");
-    res.set("Vary", "Accept");
+    res.set("Cache-Control", "public, max-age=31536000, immutable");
+    res.set("Vary", IMAGE_MODE === "avif" ? "Accept" : "");
     return res.send(cached);
   } catch {
     // Cache miss
@@ -87,11 +91,7 @@ imageOptimizeRouter.get(/\/(images)\/.*\.(jpg|jpeg|png)$/i, async (req, res, nex
   try {
     await ensureCacheDir();
 
-    let pipeline = sharp(filePath);
-
-    if (width) {
-      pipeline = pipeline.resize(width, undefined, { withoutEnlargement: true });
-    }
+    let pipeline = sharp(filePath).resize(width, undefined, { withoutEnlargement: true });
 
     if (format === "avif") {
       pipeline = pipeline.avif({ quality: 55, speed: 6 });
@@ -105,8 +105,8 @@ imageOptimizeRouter.get(/\/(images)\/.*\.(jpg|jpeg|png)$/i, async (req, res, nex
     await fs.writeFile(cachePath, buffer);
 
     res.set("Content-Type", format === "jpeg" ? "image/jpeg" : `image/${format}`);
-    res.set("Cache-Control", "public, max-age=86400");
-    res.set("Vary", "Accept");
+    res.set("Cache-Control", "public, max-age=31536000, immutable");
+    res.set("Vary", IMAGE_MODE === "avif" ? "Accept" : "");
     return res.send(buffer);
   } catch {
     return next();
