@@ -23,9 +23,14 @@ COPY ./application .
 
 RUN NODE_OPTIONS="--max-old-space-size=4096" pnpm build
 
+# Pre-optimize images at build time (WebP conversion)
+RUN node server/scripts/preoptimize-images.mjs
+
 RUN --mount=type=cache,target=/pnpm/store CI=true pnpm install --frozen-lockfile --prod --filter @web-speed-hackathon-2026/server
 
 FROM base
+
+RUN apt-get update && apt-get install -y ffmpeg && rm -rf /var/lib/apt/lists/*
 
 COPY --from=build /app /app
 

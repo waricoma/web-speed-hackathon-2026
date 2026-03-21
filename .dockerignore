@@ -4,3 +4,10 @@ node_modules
 
 application/server/seeds
 application/server/upload
+application/.image-cache
+application/dist
+benchmarks
+docs
+scoring-tool
+.claude
+.github
