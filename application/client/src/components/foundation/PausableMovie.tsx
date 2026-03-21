@@ -48,13 +48,18 @@ export const PausableMovie = ({ src, posterSrc, eager = false }: Props) => {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    const drawFrame = () => {
-      if (video.readyState >= 2) {
-        if (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight) {
-          canvas.width = video.videoWidth || 320;
-          canvas.height = video.videoHeight || 320;
+    let lastDrawTime = 0;
+    const drawFrame = (timestamp: number) => {
+      // Throttle to ~12fps to match video frame rate and reduce main thread usage
+      if (timestamp - lastDrawTime > 80) {
+        lastDrawTime = timestamp;
+        if (video.readyState >= 2) {
+          if (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight) {
+            canvas.width = video.videoWidth || 320;
+            canvas.height = video.videoHeight || 320;
+          }
+          ctx.drawImage(video, 0, 0);
         }
-        ctx.drawImage(video, 0, 0);
       }
       rafRef.current = requestAnimationFrame(drawFrame);
     };

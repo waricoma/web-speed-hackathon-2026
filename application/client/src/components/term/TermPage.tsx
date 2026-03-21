@@ -1,4 +1,4 @@
-import "./term-fonts.css";
+// term-fonts.css is inlined in index.css for faster FCP
 
 export const TermPage = () => {
   return (

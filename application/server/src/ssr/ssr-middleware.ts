@@ -105,14 +105,14 @@ ssrMiddleware.use(async (req, res, next) => {
       if (key.match(/^\/api\/v1\/posts\/[^/]+$/) && value && typeof value === "object") {
         const post = value as any;
         if (post.images?.[0]?.id) {
-          preloadLinks.push(`<link rel="preload" as="image" href="/images/${post.images[0].id}.jpg?w=640" type="image/avif" fetchpriority="high">`);
+          preloadLinks.push(`<link rel="preload" as="image" href="/images/${post.images[0].id}.jpg?w=640" fetchpriority="high">`);
         }
       }
       // Timeline: preload first post's image
       if (key.includes("/posts?offset=0") && Array.isArray(value) && value.length > 0) {
         const first = value[0] as any;
         if (first?.images?.[0]?.id) {
-          preloadLinks.push(`<link rel="preload" as="image" href="/images/${first.images[0].id}.jpg?w=640" type="image/avif" fetchpriority="high">`);
+          preloadLinks.push(`<link rel="preload" as="image" href="/images/${first.images[0].id}.jpg?w=640" fetchpriority="high">`);
         }
         if (first?.user?.profileImage?.id) {
           preloadLinks.push(`<link rel="preload" as="image" href="/images/profiles/${first.user.profileImage.id}.jpg">`);

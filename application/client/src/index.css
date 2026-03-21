@@ -4,6 +4,20 @@
 
 @import "normalize.css" layer(normalize);
 
+/* Inline term-fonts to avoid lazy CSS chunk blocking FCP on /terms */
+@font-face {
+  font-family: "Rei no Are Mincho";
+  font-display: swap;
+  src: url(/fonts/ReiNoAreMincho-Regular.woff2) format("woff2");
+  font-weight: normal;
+}
+@font-face {
+  font-family: "Rei no Are Mincho";
+  font-display: swap;
+  src: url(/fonts/ReiNoAreMincho-Heavy.woff2) format("woff2");
+  font-weight: bold;
+}
+
 @layer base {
   button:not(:disabled),
   [role="button"]:not(:disabled) {
