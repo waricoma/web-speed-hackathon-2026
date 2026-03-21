@@ -1,4 +1,4 @@
-import { lazy, startTransition, Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { lazy, startTransition, Suspense, useCallback, useEffect, useState } from "react";
 import { Route, Routes, useLocation, useNavigate } from "react-router";
 
 import { AppPage } from "@web-speed-hackathon-2026/client/src/components/application/AppPage";
@@ -18,7 +18,7 @@ const PostContainer = lazyNamed(() => import("@web-speed-hackathon-2026/client/s
 const SearchContainer = lazyNamed(() => import("@web-speed-hackathon-2026/client/src/containers/SearchContainer"), "SearchContainer");
 const TermContainer = lazyNamed(() => import("@web-speed-hackathon-2026/client/src/containers/TermContainer"), "TermContainer");
 const UserProfileContainer = lazyNamed(() => import("@web-speed-hackathon-2026/client/src/containers/UserProfileContainer"), "UserProfileContainer");
-const AuthModalContainer = lazyNamed(() => import("@web-speed-hackathon-2026/client/src/containers/AuthModalContainer"), "AuthModalContainer");
+import { AuthModalContainer } from "@web-speed-hackathon-2026/client/src/containers/AuthModalContainer";
 const NewPostModalContainer = lazyNamed(() => import("@web-speed-hackathon-2026/client/src/containers/NewPostModalContainer"), "NewPostModalContainer");
 
 const SuspenseFallback = () => (
@@ -79,34 +79,6 @@ export const AppContainer = () => {
   const authModalId = "auth-modal";
   const newPostModalId = "new-post-modal";
 
-  // Mount AuthModal only when first requested (click on sign-in button)
-  const [isAuthModalMounted, setIsAuthModalMounted] = useState(false);
-  const authModalPendingRef = useRef(false);
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      const trigger = (e.target as Element)?.closest?.(`[data-commandfor="${authModalId}"]`);
-      if (trigger && !isAuthModalMounted) {
-        e.preventDefault();
-        e.stopPropagation();
-        authModalPendingRef.current = true;
-        setIsAuthModalMounted(true);
-      }
-    };
-    document.addEventListener("click", handler, true);
-    return () => document.removeEventListener("click", handler, true);
-  }, [isAuthModalMounted, authModalId]);
-
-  // Once mounted, open the dialog
-  useEffect(() => {
-    if (isAuthModalMounted && authModalPendingRef.current) {
-      authModalPendingRef.current = false;
-      requestAnimationFrame(() => {
-        const dialog = document.getElementById(authModalId) as HTMLDialogElement | null;
-        dialog?.showModal();
-      });
-    }
-  }, [isAuthModalMounted, authModalId]);
-
   return (
     <>
       <AppPage
@@ -149,11 +121,7 @@ export const AppContainer = () => {
         </Routes>
       </AppPage>
 
-      {isAuthModalMounted && (
-        <Suspense fallback={null}>
-          <AuthModalContainer id={authModalId} onUpdateActiveUser={setActiveUser} />
-        </Suspense>
-      )}
+      <AuthModalContainer id={authModalId} onUpdateActiveUser={setActiveUser} />
       <Suspense fallback={null}>
         <NewPostModalContainer id={newPostModalId} />
       </Suspense>
