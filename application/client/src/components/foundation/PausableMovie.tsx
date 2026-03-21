@@ -70,6 +70,11 @@ export const PausableMovie = ({ src, posterSrc }: Props) => {
               poster={posterSrc}
               preload="metadata"
               src={src}
+              onError={(e) => {
+                // Retry loading if file isn't ready yet (background conversion)
+                const video = e.currentTarget;
+                setTimeout(() => { video.src = src; }, 2000);
+              }}
             />
           ) : posterSrc ? (
             <img className="h-full w-full object-cover" src={posterSrc} alt="" decoding="async" loading="lazy" />

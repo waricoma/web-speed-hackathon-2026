@@ -38,6 +38,7 @@ export const CoveredImage = ({ src, alt = "", priority = false }: Props) => {
         fetchPriority={priority ? "high" : "auto"}
         loading={priority ? "eager" : "lazy"}
         src={`${src}?w=640`}
+        onError={(e) => { const el = e.currentTarget; setTimeout(() => { el.src = `${src}?w=640`; }, 2000); }}
       />
 
       <button
