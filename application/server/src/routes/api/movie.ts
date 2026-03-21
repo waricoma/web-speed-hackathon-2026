@@ -1,36 +1,62 @@
+import { execFile } from "child_process";
 import { promises as fs } from "fs";
+import os from "os";
 import path from "path";
+import { promisify } from "util";
 
 import { Router } from "express";
-import { fileTypeFromBuffer } from "file-type";
 import httpErrors from "http-errors";
 import { v4 as uuidv4 } from "uuid";
 
 import { UPLOAD_PATH } from "@web-speed-hackathon-2026/server/src/paths";
 
-// 変換した動画の拡張子
-const EXTENSION = "gif";
+const execFileAsync = promisify(execFile);
+
+const EXTENSION = "mp4";
+const MOVIES_DIR = path.resolve(UPLOAD_PATH, "movies");
 
 export const movieRouter = Router();
 
-movieRouter.post("/movies", async (req, res) => {
+// Skip bodyParser.raw - respond with ID immediately, process in background
+movieRouter.post("/movies", (req, res, next) => {
   if (req.session.userId === undefined) {
-    throw new httpErrors.Unauthorized();
-  }
-  if (Buffer.isBuffer(req.body) === false) {
-    throw new httpErrors.BadRequest();
-  }
-
-  const type = await fileTypeFromBuffer(req.body);
-  if (type === undefined || type.ext !== EXTENSION) {
-    throw new httpErrors.BadRequest("Invalid file type");
+    next(new httpErrors.Unauthorized());
+    return;
   }
 
   const movieId = uuidv4();
 
-  const filePath = path.resolve(UPLOAD_PATH, `./movies/${movieId}.${EXTENSION}`);
-  await fs.mkdir(path.resolve(UPLOAD_PATH, "movies"), { recursive: true });
-  await fs.writeFile(filePath, req.body);
+  // Respond immediately
+  res.status(200).type("application/json").send({ id: movieId });
 
-  return res.status(200).type("application/json").send({ id: movieId });
+  // Collect body and convert in background
+  const chunks: Buffer[] = [];
+  req.on("data", (chunk: Buffer) => chunks.push(chunk));
+  req.on("end", () => {
+    const body = Buffer.concat(chunks);
+    const tmpDir = os.tmpdir();
+    const inputPath = path.join(tmpDir, `${movieId}_input`);
+    const outputPath = path.join(MOVIES_DIR, `${movieId}.${EXTENSION}`);
+
+    fs.mkdir(MOVIES_DIR, { recursive: true })
+      .then(() => fs.writeFile(inputPath, body))
+      .then(() =>
+        execFileAsync("ffmpeg", [
+          "-i", inputPath,
+          "-y",
+          "-t", "5",
+          "-vf", "crop=min(iw\\,ih):min(iw\\,ih),scale=240:240,fps=8",
+          "-vcodec", "libx264",
+          "-pix_fmt", "yuv420p",
+          "-crf", "35",
+          "-preset", "ultrafast",
+          "-movflags", "+faststart",
+          "-threads", "0",
+          "-an",
+          outputPath,
+        ]),
+      )
+      .then(() => fs.unlink(inputPath).catch(() => {}))
+      .catch(() => {});
+  });
 });
