@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Helmet } from "react-helmet";
 import { useParams } from "react-router";
 
 import { DirectMessageGate } from "@web-speed-hackathon-2026/client/src/components/direct_message/DirectMessageGate";
@@ -65,19 +64,30 @@ export const DirectMessageContainer = ({ activeUser, authModalId }: Props) => {
     async (params: DirectMessageFormData) => {
       setIsSubmitting(true);
       try {
-        await sendJSON(`/api/v1/dm/${conversationId}/messages`, {
+        const newMessage = await sendJSON<Models.DirectMessage>(`/api/v1/dm/${conversationId}/messages`, {
           body: params.body,
         });
-        loadConversation();
+        // Optimistic update: add message to state immediately
+        if (conversation && newMessage) {
+          setConversation({
+            ...conversation,
+            messages: [...conversation.messages, newMessage],
+          });
+        }
       } finally {
         setIsSubmitting(false);
       }
     },
-    [conversationId, loadConversation],
+    [conversationId, conversation],
   );
 
-  const handleTyping = useCallback(async () => {
+  const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const handleTyping = useCallback(() => {
+    if (typingTimerRef.current) return; // Already sent recently
     void sendJSON(`/api/v1/dm/${conversationId}/typing`, {});
+    typingTimerRef.current = setTimeout(() => {
+      typingTimerRef.current = null;
+    }, 3000); // Throttle: max once per 3 seconds
   }, [conversationId]);
 
   useWs(`/api/v1/dm/${conversationId}`, (event: DmUpdateEvent | DmTypingEvent) => {
@@ -103,6 +113,16 @@ export const DirectMessageContainer = ({ activeUser, authModalId }: Props) => {
     }
   });
 
+  const peer = conversation != null && activeUser != null
+    ? (conversation.initiator.id !== activeUser.id ? conversation.initiator : conversation.member)
+    : null;
+
+  useEffect(() => {
+    if (peer != null) {
+      document.title = `${peer.name} さんとのダイレクトメッセージ - CaX`;
+    }
+  }, [peer?.name]);
+
   if (activeUser === null) {
     return (
       <DirectMessageGate
@@ -116,26 +136,29 @@ export const DirectMessageContainer = ({ activeUser, authModalId }: Props) => {
     if (conversationError != null) {
       return <NotFoundContainer />;
     }
-    return null;
+    return (
+      <div className="px-4 py-4">
+        <div className="flex items-center gap-2 mb-4 border-b pb-3">
+          <div className="h-12 w-12 rounded-full bg-cax-surface-subtle" />
+          <div className="h-4 w-24 rounded bg-cax-surface-subtle" />
+        </div>
+        <div className="space-y-3">
+          <div className="h-10 w-48 rounded-xl bg-cax-surface-subtle" />
+          <div className="h-10 w-36 rounded-xl bg-cax-surface-subtle ml-auto" />
+        </div>
+      </div>
+    );
   }
 
-  const peer =
-    conversation.initiator.id !== activeUser?.id ? conversation.initiator : conversation.member;
-
   return (
-    <>
-      <Helmet>
-        <title>{peer.name} さんとのダイレクトメッセージ - CaX</title>
-      </Helmet>
-      <DirectMessagePage
-        conversationError={conversationError}
-        conversation={conversation}
-        activeUser={activeUser}
-        onTyping={handleTyping}
-        isPeerTyping={isPeerTyping}
-        isSubmitting={isSubmitting}
-        onSubmit={handleSubmit}
-      />
-    </>
+    <DirectMessagePage
+      conversationError={conversationError}
+      conversation={conversation}
+      activeUser={activeUser}
+      onTyping={handleTyping}
+      isPeerTyping={isPeerTyping}
+      isSubmitting={isSubmitting}
+      onSubmit={handleSubmit}
+    />
   );
 };
